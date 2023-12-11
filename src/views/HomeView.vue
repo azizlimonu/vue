@@ -1,13 +1,15 @@
 <script setup>
+// Importing necessary functions and modules from Vue and Pinia
 import { computed, ref, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { showNotification } from '@/utils/notify'
 import { useCounterStore } from '@/stores/counter'
 
+// Initializing the Pinia store for counter
 const store = useCounterStore();
 const { dataForm } = storeToRefs(store);
 
-// reactive var
+// Reactive variables
 const greeting = ref('');
 const budget = ref(0);
 const budgetAmount = ref("");
@@ -26,16 +28,19 @@ let editIndex = ref(null);
 
 const modifiedArray = ref([]);
 
-// function
+// Function to open the modal for editing
 const openModal = (indexes) => {
-  modalOpen.value = ref(true);
+  modalOpen.value = true;
   editIndex.value = indexes;
+  editedItem.value = findData(indexes);
 };
 
+// Function to close the modal
 const closeModal = () => {
   modalOpen.value = false;
 };
 
+// Function to find data based on indexes
 const findData = (indexes) => {
   modifiedArray.value = [...expenseList.value];
   selectedItem.value = modifiedArray.value.find(item => item.id === indexes);
@@ -43,6 +48,7 @@ const findData = (indexes) => {
   return selectedItem.value;
 };
 
+// Function to add a budget
 const addBudget = () => {
   let amount = parseFloat(budgetAmount.value);
   if (isNaN(amount) || amount <= 0) {
@@ -57,13 +63,14 @@ const addBudget = () => {
   budget.value += amount;
 
   showNotification({
-    essage: "Budget Sucessfully Added",
+    message: "Budget Successfully Added",
     success: true,
   })
-
+  saveDataToLocalStorage();
   budgetAmount.value = "";
 };
 
+// Function to add an expense
 const addExpense = () => {
   const amount = parseFloat(expenseAmount.value);
   if (isNaN(amount) || amount <= 0) {
@@ -93,14 +100,18 @@ const addExpense = () => {
   });
 
   showNotification({
-    message: "Expense Sucessfully Added",
+    message: "Expense Successfully Added",
     success: true,
   });
 
+  saveDataToLocalStorage();
+  expenseTitle.value = '';
   expenseAmount.value = "";
   expenseDescription.value = '';
+  expenseDate.value = '';
 }
 
+// Function to remove an expense
 const removeExpense = (index) => {
   const removedExpense = expenseList.value[index];
   expenses.value -= removedExpense.amount;
@@ -108,11 +119,48 @@ const removeExpense = (index) => {
 
   expenseList.value.splice(index, 1);
   showNotification({
-    message: "Expense Sucessfully Removed",
+    message: "Expense Successfully Removed",
     success: true,
   });
+  saveDataToLocalStorage();
 };
 
+// Reset Fields
+const resetFormFields = () => {
+
+  expenseAmount.value = "";
+  expenseDescription.value = '';
+  expenseTitle.value = '';
+  expenseDate.value = '';
+};
+
+// Function to update expense
+const updateExpense = () => {
+  if (editIndex.value !== null) {
+    // Update the selected expense with edited values
+    const editedExpense = {
+      id: editedItem.value.id,
+      amount: parseFloat(expenseAmount.value),
+      description: expenseDescription.value,
+      title: expenseTitle.value,
+      date: expenseDate.value,
+    };
+
+    // Update the expenseList array
+    // expenseList.value.splice(editIndex.value, 1, editedExpense);
+    console.log(editedExpense);
+    // Close the modal
+    closeModal();
+
+    // Save data to local storage
+    // saveDataToLocalStorage();
+
+    // Reset form fields
+    // resetFormFields();
+  }
+};
+
+// Function to reset all data
 const reset = () => {
   budget.value = 0;
   remainingBudget.value = 0;
@@ -122,12 +170,15 @@ const reset = () => {
     message: "All data Cleared",
     success: true,
   });
+  saveDataToLocalStorage();
 };
 
+// Function to generate a random integer
 const getRandomInt = (max) => {
   return Math.floor(Math.random() * max);
 }
 
+// Function to get the minimum date for date input
 const getMinDate = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -141,6 +192,7 @@ const getMinDate = () => {
   return `${year}-${month}-${day}`;
 }
 
+// Function to set a greeting based on the current time
 const setGreeting = () => {
   const currentTime = new Date().getHours();
 
@@ -156,11 +208,43 @@ const setGreeting = () => {
   greeting.value = `Good ${timeOfDay}!`;
 };
 
+const STORAGE_KEY = 'expense_tracker_data';
+
+// Function to load data from local storage
+const loadDataFromLocalStorage = () => {
+  const storedData = localStorage.getItem(STORAGE_KEY);
+  if (storedData) {
+    const parsedData = JSON.parse(storedData);
+    budget.value = parsedData.budget || 0;
+    remainingBudget.value = parsedData.remainingBudget || 0;
+    expenses.value = parsedData.expenses || 0;
+    expenseList.value = parsedData.expenseList || [];
+  }
+};
+
+// Function to save data to local storage
+const saveDataToLocalStorage = () => {
+  const dataToSave = {
+    budget: budget.value,
+    remainingBudget: remainingBudget.value,
+    expenses: expenses.value,
+    expenseList: expenseList.value,
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+    console.log('Data saved to local storage:', dataToSave);
+  } catch (error) {
+    console.error('Error saving data to local storage:', error);
+  }
+};
 
 const minDate = getMinDate();
 
+// Lifecycle hook to run code after the component is mounted
 onMounted(() => {
+  loadDataFromLocalStorage();
   setGreeting();
+  console.log(expenseList.value);
 });
 
 </script>
@@ -205,8 +289,6 @@ onMounted(() => {
                 placeholder="Enter your budget.." autofocus>
               <button class="primary-btn flex" type="submit" id="addBudget">
                 Add Budget
-                <ion-icon name="arrow-forward-outline">
-                </ion-icon>
               </button>
             </form>
           </div>
@@ -245,8 +327,8 @@ onMounted(() => {
                     placeholder="Enter your expense.." required autocomplete="off">
                 </div>
 
-                <button class="primary-btn flex" id="addExpense" type="submit">Update Expenses<ion-icon
-                    name="arrow-forward-outline"></ion-icon>
+                <button class="primary-btn flex" id="addExpense" type="submit">
+                  Update Expenses
                 </button>
               </form>
             </div>
@@ -317,8 +399,9 @@ onMounted(() => {
                   placeholder="Enter your expense.." required autocomplete="off">
               </div>
 
-              <button class="primary-btn flex" id="addExpense" type="submit">Add Expense <ion-icon
-                  name="arrow-forward-outline"></ion-icon></button>
+              <button class="primary-btn flex" id="addExpense" type="submit">
+                Add Expense
+              </button>
             </form>
           </div>
 
@@ -334,4 +417,7 @@ onMounted(() => {
   </footer>
 </template>
 
-<style scoped></style>
+
+<style scoped>
+/* Your scoped styles go here */
+</style>
